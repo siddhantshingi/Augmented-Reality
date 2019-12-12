@@ -65,15 +65,15 @@ def drawMatches(imageA, imageB, kpsA, kpsB, matches, status):
 MIN_MATCHES = 25
 ratio = 0.75
 reprojThresh = 4
-thres = 100
+thres = 50
 rate = 100
 speed = 1.1
+# acquired by calibration of camera
 camera_parameters = np.array([[601.1,0,332.86],[0,600.21,226.4],[0,0,1]])
-print "camera_parameters: ",camera_parameters
 
-obj = OBJ('pokeball.obj', swapyz=True)
-modelA = cv2.imread('modelB.jpg', 0)
-modelB = cv2.imread('modelB_p.jpg', 0)
+obj = OBJ('object_files/pokeball.obj', swapyz=True)
+modelA = cv2.imread('markers/modelB.jpg', 0)
+modelB = cv2.imread('markers/modelB_p.jpg', 0)
 
 orb = cv2.xfeatures2d.SIFT_create()
 kp_modelA, des_modelA = orb.detectAndCompute(modelA, None)  
@@ -83,6 +83,11 @@ kp_mA = np.float32([kp.pt for kp in kp_modelA])
 kp_mB = np.float32([kp.pt for kp in kp_modelB])
 
 cap = cv2.VideoCapture(2)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+out = cv2.VideoWriter('examples/ping_pong_game.mp4', fourcc, fps, (width,height))
 
 intersect = False
 start = True
@@ -139,10 +144,6 @@ while True:
 			except Exception as e:
 				pass
 			
-		# else:
-		    # print ("Not enough matches have been found for A- %d/%d" % (len(matches),
-		                                                          # MIN_MATCHES))
-
 		rawMatches = matcher.knnMatch(des_modelB, des_frame, 2)
 		matches = []
 
@@ -179,9 +180,6 @@ while True:
 			except Exception as e:
 				pass
 			
-		# else:
-		    # print ("Not enough matches have been found for B - %d/%d" % (len(matches),
-		                                                          # MIN_MATCHES))
 		if detect_A and detect_B and start:
 			count += 1
 			if (count > thres):
@@ -190,7 +188,6 @@ while True:
 				rx_B = random.randint(5*int(frame.shape[1]/8),3*int(frame.shape[1]/4))
 				ry_A = random.randint(0,frame.shape[0])
 				ry_B = random.randint(0,frame.shape[0])
-				cv2.line(frame,(rx_A,ry_A),(rx_B,ry_B),(0,255,0),5)
 				c_A = (rx_A,ry_A)
 				c_B = (rx_B,ry_B)
 				m1 = (ry_B - ry_A)*1.0/(rx_B - rx_A)
@@ -224,7 +221,6 @@ while True:
 
 		if render_obj:
 			Lambda = (count - thres)*1.0/rate
-			cv2.line(frame,c_A,c_B,(0,255,0),5)
 			c = (c_A[0] + Lambda*(c_B[0] - c_A[0]),c_A[1] + Lambda*(c_B[1] - c_A[1]))
 			if (c[0]<0 or c[0]>frame.shape[1]):
 				game_over = True
@@ -264,19 +260,18 @@ while True:
 			dist_B = math.sqrt((x_B - c[0])*(x_B - c[0]) + (y_B - c[1])*(y_B - c[1]))
 			if (dist_A <= radiusA and player != -1):
 				m2 = (c[1] - y_A)*1.0/(c[0] - x_A)
-				cv2.line(frame,(int(c[0]),int(c[1])),(x_A,y_A),(0,255,0),5)
 				player = -1
 				intersect = True
 			elif (dist_B <= radiusB and player != 1):
 				player = 1
 				m2 = (c[1] - y_B)*1.0/(c[0] - x_B)
-				cv2.line(frame,(int(c[0]),int(c[1])),(x_B,y_B),(0,255,0),5)
 				intersect = True
-			frame = cv2.circle(frame,(int(c[0]),int(c[1])),3,(255,0,0),8)
-			frame = cv2.circle(frame,(int(c[0]),int(c[1])),3,(255,0,0),5)
+			frame = cv2.circle(frame,(int(c[0]),int(c[1])),8,(0,255,0),8)
 			count += 1
 	cv2.imshow('frame', frame)
+	out.write(frame)
 	if cv2.waitKey(1) & 0xFF == ord('q'):
 	    break
 cap.release()
+out.release()
 cv2.destroyAllWindows()
